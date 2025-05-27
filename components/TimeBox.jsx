@@ -7,7 +7,7 @@ const TimeBox = ({ countdown }) => {
   const timeOptions = [15, 30, 60];
 
   return (
-    <div className="flex justify-between mx-2 text-lg font-bold">
+    <div className="flex justify-between mx-2 text-lg font-bold transition-all ">
       <div>
         {countdown > 0 ? (
           <span>Time Left: {countdown} seconds</span>
