@@ -6,7 +6,7 @@ import { useTestModeContext } from "@/context/TestModeContext";
 import Result from "./Result";
 
 const TypingBox = () => {
-  const [wordsArray, setWordsArray] = useState(() => randomWords(50));
+  const [wordsArray, setWordsArray] = useState(() => randomWords(500));
   const { testTime } = useTestModeContext();
   const [countdown, setCountdown] = useState(testTime);
   const [timerStarted, setTimerStarted] = useState(false);
@@ -15,7 +15,7 @@ const TypingBox = () => {
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
 
-  // Test Statitics
+  // Test Statistics
   const [correctChars, setCorrectChars] = useState(0);
   const [incorrectChars, setIncorrectChars] = useState(0);
   const [extraChars, setExtraChars] = useState(0);
@@ -23,21 +23,21 @@ const TypingBox = () => {
   const [accuracy, setAccuracy] = useState(0);
   const [wpm, setWpm] = useState(0);
 
+  const [graphData, setGraphData] = useState([]);
+
+  const correctCharsRef = useRef(0);
+
   const calculateWPM = () => {
-    const totalTimeInMinutes = testTime / 60;
-    if (totalTimeInMinutes > 0) {
-      const wpmValue = Math.round((correctChars / totalTimeInMinutes) * 0.2);
-      setWpm(wpmValue);
-    } else {
-      setWpm(0);
-    }
+    const wpmValue = Math.round((correctChars * 12) / testTime);
+    setWpm(wpmValue);
   };
+
   const resetTest = () => {
     setCurrentWordIndex(0);
     setCurrentCharIndex(0);
     setTimerStarted(false);
     setTestCompleted(false);
-    setWordsArray(randomWords(50));
+    setWordsArray(randomWords(500));
     setCountdown(testTime);
     // Reset statistics
     setCorrectChars(0);
@@ -46,7 +46,8 @@ const TypingBox = () => {
     setMissedChars(0);
     setAccuracy(0);
     setWpm(0);
-    
+    setGraphData([]);
+
     focusInput();
 
     // Clear all existing classes and remove extra characters
@@ -54,25 +55,26 @@ const TypingBox = () => {
       if (ref.current && ref.current.children) {
         const children = Array.from(ref.current.children);
         children.forEach((child) => {
-          if (child.classList.contains('extra-char')) {
+          if (child.classList.contains("extra-char")) {
             child.remove();
           } else {
             child.classList.remove(
               "blinking-cursor",
               "blinking-cursor-right",
               "correct-char",
-              "incorrect-char"
+              "incorrect-char",
             );
           }
         });
       }
     });
-};
+  };
 
   useEffect(() => {
     if (testCompleted) {
       calculateWPM();
-      const totalChars = correctChars + incorrectChars + extraChars + missedChars;
+      const totalChars =
+        correctChars + incorrectChars + extraChars + missedChars;
       setAccuracy(
         totalChars > 0 ? Math.round((correctChars / totalChars) * 100) : 0,
       );
@@ -87,10 +89,7 @@ const TypingBox = () => {
     testTime,
   ]);
 
-  
-
   const wordsSpanRef = useMemo(() => {
-    // Create an array of refs for each word in the wordsArray
     return Array(wordsArray.length)
       .fill(0)
       .map((i) => createRef(null));
@@ -98,8 +97,12 @@ const TypingBox = () => {
 
   const InputRef = useRef(null);
 
-  
   const handleUserInput = (e) => {
+    if (e.keyCode !== 8 && e.key.length > 1) {
+      e.preventDefault();
+      return;
+    }
+
     if (!timerStarted) {
       setTimerStarted(true);
     }
@@ -123,6 +126,7 @@ const TypingBox = () => {
             "blinking-cursor-right",
           );
         }
+
         // Add the correct class to the current word
         const nextWordIndex = currentWordIndex + 1;
         if (nextWordIndex < wordsSpanRef.length) {
@@ -131,6 +135,18 @@ const TypingBox = () => {
             nextWordChars[0].classList.add("blinking-cursor");
           }
         }
+
+        //  scrolling logic
+        if (
+          wordsSpanRef[currentWordIndex + 1].current.offsetLeft <
+          wordsSpanRef[currentWordIndex].current.offsetLeft
+        ) {
+          wordsSpanRef[currentWordIndex].current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+
         // Move to the next word
         setCurrentWordIndex((prev) => prev + 1);
         setCurrentCharIndex(0);
@@ -226,9 +242,14 @@ const TypingBox = () => {
   }, [testTime]);
 
   useEffect(() => {
-    setWordsArray(randomWords(50));
+    setWordsArray(randomWords(500));
     focusInput();
   }, []);
+
+
+  useEffect(() => {
+    correctCharsRef.current = correctChars;
+  }, [correctChars]);
 
   useEffect(() => {
     // Timer logic
@@ -236,6 +257,12 @@ const TypingBox = () => {
     if (timerStarted && countdown > 0) {
       timer = setInterval(() => {
         setCountdown((prev) => {
+          const timeElapsed = testTime - prev + 1;
+          const currentWPM = Math.round(
+            (correctCharsRef.current * 12) / timeElapsed,
+          );
+          setGraphData((data) => [...data, [timeElapsed, currentWPM]]);
+
           if (prev === 1) {
             setTimerStarted(false);
             setTestCompleted(true);
@@ -246,8 +273,7 @@ const TypingBox = () => {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [timerStarted, countdown]);
-
+  }, [timerStarted, testTime]);
 
   useEffect(() => {
     // Handle Tab key to reset the test
@@ -266,35 +292,39 @@ const TypingBox = () => {
   }, [resetTest]);
 
   return (
-    <div className="type-box min-h[300px] max-w-[1200px] mx-auto flex flex-col gap-5 border-2 border-dashed border-gray-300 p-4 rounded-md">
+    <div className="type-box min-h-[300px]  px-30 min-w-full max-w-[1200px] flex flex-col gap-5  p-4 rounded-md">
       <TimeBox countdown={countdown} />
-      <div
-        onClick={focusInput}
-        className="words-container text-2xl flex flex-wrap gap-2"
-      >
-        {testCompleted ? (
-          <Result 
+      {testCompleted ? (
+        <div className="">
+          <Result
             wpm={wpm}
             accuracy={accuracy}
             correctChars={correctChars}
             incorrectChars={incorrectChars}
             extraChars={extraChars}
             missedChars={missedChars}
+            graphData={graphData}
+            testTime={testTime}
           />
-        ) : (
-          wordsArray.map((word, index) => (
-            <span
-              ref={wordsSpanRef[index]}
-              className="mx-1.5 p-0.5"
-              key={index}
-            >
-              {word.split("").map((char, charIndex) => (
-                <span className="mx-[1px]" key={charIndex}>{char}</span>
-              ))}
-            </span>
-          ))
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="relative flex-1 p-2 overflow-hidden">
+          <div
+            onClick={focusInput}
+            className="words-container text-2xl pt-5 flex flex-wrap gap-2 space-y-1 overflow-hidden h-[150px] relative scrollbar-hide"
+          >
+            {wordsArray.map((word, index) => (
+              <span ref={wordsSpanRef[index]} className="mx-1.5" key={index}>
+                {word.split("").map((char, charIndex) => (
+                  <span className="mx-[1.5px]" key={charIndex}>
+                    {char}
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {!testCompleted && (
         <input
           type="text"

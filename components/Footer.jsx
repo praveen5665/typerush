@@ -2,7 +2,7 @@ import { FaGithub } from "react-icons/fa";
 
 const Footer = () => {
   return (
-    <footer className="w-full text-white  shadow-inner">
+    <footer className="w-full text-white  ">
       <div className="max-w-5xl mx-auto px-4 flex flex-col items-center gap-2">
         <p className="text-sm text-gray-300 font-medium text-center">
           ⌨️ Press <span className="font-bold text-white">Tab</span> to restart the test
